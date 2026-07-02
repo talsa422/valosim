@@ -34,6 +34,8 @@
   // ── YouTube ──────────────────────────────────────────────────
   let ytPlayer = null;
   let ytApiPromise = null;
+  let ytHasList = false;
+  const dockBigPlay = document.getElementById('dockBigPlay');
 
   function loadYTApi() {
     if (ytApiPromise) return ytApiPromise;
@@ -66,12 +68,40 @@
     dockTitle.textContent = (d && d.title) ? d.title : 'YOUTUBE';
   }
 
+  // Autoplay engellenirse (tarayıcı politikası) büyük ▶ göster —
+  // butona tıklama gerçek bir kullanıcı hareketi olduğundan sesli başlatabilir.
+  function scheduleAutoplayCheck() {
+    setTimeout(() => {
+      if (!ytPlayer || activeSource !== 'yt' || !ytPlayer.getPlayerState) return;
+      const st = ytPlayer.getPlayerState();
+      if (st !== YT.PlayerState.PLAYING && st !== YT.PlayerState.BUFFERING) {
+        show(dockBigPlay);
+        ytMsg.textContent = 'Tarayıcı otomatik başlatmayı engelledi — oynatıcıdaki ▶ BAŞLAT butonuna bas.';
+        ytMsg.style.color = 'var(--neon-yellow)';
+      }
+    }, 1600);
+  }
+  dockBigPlay.addEventListener('click', () => {
+    hide(dockBigPlay);
+    if (ytPlayer && ytPlayer.playVideo) ytPlayer.playVideo();
+  });
+
   async function loadYouTube(raw) {
     const parsed = parseYouTubeUrl(raw);
     if (!parsed) {
       ytMsg.textContent = 'Link anlaşılamadı — bir YouTube şarkı, video veya playlist linki yapıştır.';
       ytMsg.style.color = 'var(--accent)';
       return;
+    }
+    // YT Music "radyo / mix" listeleri (RD...) gömülü oynatıcıda desteklenmiyor
+    if (parsed.listId && /^RD/.test(parsed.listId)) {
+      if (parsed.videoId) {
+        parsed.listId = null; // listedeki tek şarkıyı çal
+      } else {
+        ytMsg.textContent = 'YT Music radyo/mix listeleri gömülemiyor — şarkı linki ya da normal bir playlist dene.';
+        ytMsg.style.color = 'var(--accent)';
+        return;
+      }
     }
     ytMsg.textContent = 'Yükleniyor...';
     ytMsg.style.color = '';
@@ -80,6 +110,8 @@
     await loadYTApi();
     setDockSource('yt');
     musicDock.classList.remove('collapsed');
+    hide(dockBigPlay);
+    ytHasList = !!parsed.listId;
 
     const startPlayback = () => {
       if (parsed.listId) {
@@ -87,6 +119,7 @@
       } else {
         ytPlayer.loadVideoById(parsed.videoId);
       }
+      scheduleAutoplayCheck();
     };
 
     if (ytPlayer) {
@@ -96,19 +129,39 @@
         width: 296, height: 167,
         videoId: parsed.listId ? undefined : parsed.videoId,
         playerVars: parsed.listId
-          ? { listType: 'playlist', list: parsed.listId, autoplay: 1 }
-          : { autoplay: 1 },
+          ? { listType: 'playlist', list: parsed.listId, autoplay: 1, playsinline: 1 }
+          : { autoplay: 1, playsinline: 1 },
         events: {
           onReady: e => {
             e.target.setVolume(Number(dockVolume.value));
             e.target.playVideo();
             updateYtTitle();
+            scheduleAutoplayCheck();
           },
-          onStateChange: updateYtTitle
+          onStateChange: e => {
+            updateYtTitle();
+            if (e.data === YT.PlayerState.PLAYING) {
+              hide(dockBigPlay);
+              ytMsg.textContent = 'Çalıyor — mini oynatıcı sağ altta.';
+              ytMsg.style.color = 'var(--neon-green)';
+            }
+          },
+          onError: e => {
+            const code = e.data;
+            ytMsg.style.color = 'var(--accent)';
+            if (code === 101 || code === 150) {
+              ytMsg.textContent = 'Bu video dış sitelerde çalmaya kapatılmış.' + (ytHasList ? ' Sonraki şarkıya geçiliyor...' : ' Başka bir link dene.');
+              if (ytHasList) setTimeout(() => ytPlayer && ytPlayer.nextVideo(), 900);
+            } else if (code === 2 || code === 100) {
+              ytMsg.textContent = 'Video bulunamadı — linki kontrol et.';
+            } else {
+              ytMsg.textContent = 'Oynatma hatası (kod ' + code + ') — başka bir link dene.';
+            }
+          }
         }
       });
     }
-    ytMsg.textContent = 'Çalıyor — mini oynatıcı sağ altta.';
+    ytMsg.textContent = 'Yüklendi — mini oynatıcı sağ altta.';
     ytMsg.style.color = 'var(--neon-green)';
   }
 
@@ -194,7 +247,8 @@
       await initSpotifySDK();
       show(musicPanel); // giriş dönüşünde paneli aç ki durum görünsün
     } catch (e) {
-      spStatus.textContent = 'HATA';
+      spStatus.textContent = 'GİRİŞ HATASI';
+      show(musicPanel);
     }
   }
 
@@ -227,7 +281,17 @@
       if (activeSource === 'spotify') dockTitle.textContent = label;
     });
     spPlayer.addListener('authentication_error', () => spotifyLogout());
-    spPlayer.addListener('account_error', () => { spStatus.textContent = 'PREMIUM GEREKLİ'; });
+    spPlayer.addListener('account_error', () => {
+      spStatus.textContent = 'PREMIUM GEREKLİ';
+      spTrack.textContent = 'Web üzerinden çalma yalnızca Spotify Premium hesaplarda çalışıyor.';
+    });
+    spPlayer.addListener('initialization_error', ({ message }) => {
+      spStatus.textContent = 'SDK HATASI';
+      spTrack.textContent = message;
+    });
+    spPlayer.addListener('playback_error', ({ message }) => {
+      spTrack.textContent = 'Oynatma hatası: ' + message;
+    });
     spPlayer.connect();
   }
 
@@ -239,6 +303,18 @@
       headers: { Authorization: 'Bearer ' + t, 'Content-Type': 'application/json' },
       body: body ? JSON.stringify(body) : undefined
     }).catch(() => {});
+  }
+
+  async function spGet(path) {
+    const t = await getAccessToken();
+    if (!t) return null;
+    try {
+      const r = await fetch('https://api.spotify.com/v1' + path, {
+        headers: { Authorization: 'Bearer ' + t }
+      });
+      if (r.status === 204 || !r.ok) return null;
+      return await r.json();
+    } catch (e) { return null; }
   }
 
   function spotifyLogout() {
@@ -266,12 +342,23 @@
   document.getElementById('spPlay').addEventListener('click', () => spPlayer && spPlayer.togglePlay());
   document.getElementById('spPrev').addEventListener('click', () => spPlayer && spPlayer.previousTrack());
   document.getElementById('spNext').addEventListener('click', () => spPlayer && spPlayer.nextTrack());
-  document.getElementById('spTransfer').addEventListener('click', () => {
-    if (!spDeviceId) return;
+  document.getElementById('spTransfer').addEventListener('click', async () => {
+    if (!spDeviceId) {
+      spTrack.textContent = 'Cihaz henüz hazır değil — birkaç saniye bekleyip tekrar dene.';
+      return;
+    }
     if (ytPlayer && ytPlayer.pauseVideo) ytPlayer.pauseVideo();
-    spApi('/me/player', { device_ids: [spDeviceId], play: true });
+    if (spPlayer && spPlayer.activateElement) spPlayer.activateElement(); // mobil autoplay izni
+    await spApi('/me/player', { device_ids: [spDeviceId], play: true });
     setDockSource('spotify');
     dockTitle.textContent = spTrack.textContent;
+    // Aktarılacak bir şey var mıydı? Yoksa kullanıcıya yol göster.
+    setTimeout(async () => {
+      const st = await spGet('/me/player');
+      if (!st || !st.is_playing) {
+        spTrack.textContent = 'Çalan bir şey yok — Spotify uygulamasında bir şarkı başlatıp tekrar dene.';
+      }
+    }, 1800);
   });
 
   // ── Dock controls (aktif kaynağa yönlenir) ───────────────────
@@ -316,4 +403,7 @@
   syncSpotifyUI(false);
   handleAuthRedirect();
   if (SPOTIFY_CLIENT_ID && localStorage.getItem('valosim_sp_refresh')) initSpotifySDK();
+  // YT API'yi önceden yükle: YÜKLE tıklaması anında player oluşturur,
+  // kullanıcı hareketi taze kalır ve autoplay şansı artar
+  loadYTApi();
 })();
