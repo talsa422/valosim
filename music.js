@@ -172,7 +172,9 @@
   let spPlayer = null;
   let spDeviceId = null;
 
-  const redirectUri = () => location.origin + location.pathname;
+  // Her zaman kanonik adresi gönder (index.html ile açılsa bile),
+  // çünkü Spotify kayıtlı Redirect URI ile birebir eşleşme ister
+  const redirectUri = () => location.origin + location.pathname.replace(/index\.html$/, '');
 
   function b64url(bytes) {
     return btoa(String.fromCharCode(...bytes)).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
