@@ -2,9 +2,8 @@
 //  VALOSIM MUSIC — YouTube embed + Spotify Web Playback (PKCE)
 // ═══════════════════════════════════════════════════════════════
 (() => {
-  // Spotify Developer Dashboard'dan alınan Client ID buraya yazılır.
-  // Boşken Spotify bölümü "kurulum bekliyor" modunda kalır.
-  const SPOTIFY_CLIENT_ID = '';
+  // Spotify Developer Dashboard'dan alınan Client ID.
+  const SPOTIFY_CLIENT_ID = '7cd4c83c80e7421a8b59dcf12a93b7d1';
 
   // ── DOM ──────────────────────────────────────────────────────
   const musicPanel = document.getElementById('musicPanel');
