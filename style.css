@@ -1,0 +1,454 @@
+:root {
+  --bg: #0a0318;
+  --bg-panel: #140b2b;
+  --bg-panel2: #1b1038;
+  --accent: #ff2079;
+  --accent-dim: #ff207933;
+  --accent2: #00f0ff;
+  --neon-green: #39ff14;
+  --neon-yellow: #ffe600;
+  --text: #f2efff;
+  --text-dim: #9a92c9;
+  --border: #3a2a6b;
+  font-size: 16px;
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%; height: 100%;
+  background: #000;
+  overflow: hidden;
+  font-family: 'VT323', monospace;
+  color: var(--text);
+}
+
+body {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+#wrapper {
+  position: relative;
+  width: 100vw;
+  height: 100vh;
+}
+
+/* CRT scanlines + vignette over everything */
+#wrapper::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 600;
+  background:
+    radial-gradient(ellipse at center, transparent 58%, rgba(0,0,0,0.42) 100%),
+    repeating-linear-gradient(0deg, rgba(0,0,0,0.20) 0px, rgba(0,0,0,0.20) 1px, transparent 1px, transparent 3px);
+}
+
+#gameCanvas {
+  display: block;
+  cursor: none;
+  background: var(--bg);
+}
+
+.hidden { display: none !important; }
+
+/* ── HUD ─────────────────────────────────────────── */
+#hud {
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.7em 1em;
+  pointer-events: none;
+  z-index: 50;
+}
+.hud-bar {
+  display: flex;
+  gap: 1.7em;
+  background: rgba(10,3,24,0.82);
+  border: 2px solid var(--border);
+  padding: 0.55em 1.4em;
+  backdrop-filter: blur(4px);
+  box-shadow: 0 0 14px rgba(0,240,255,0.12);
+}
+.hud-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35em;
+  min-width: 4em;
+}
+.hud-label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.42em;
+  letter-spacing: 0.12em;
+  color: var(--text-dim);
+}
+.hud-item span:last-child {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.8em;
+}
+.hud-mode span:last-child { color: var(--accent2); text-shadow: 0 0 8px var(--accent2); }
+.hud-score span:last-child { color: var(--neon-yellow); text-shadow: 0 0 8px var(--neon-yellow); }
+.hud-combo span:last-child { color: var(--accent); text-shadow: 0 0 8px var(--accent); }
+.hud-time span:last-child { color: var(--text); }
+.hud-lives span:last-child { letter-spacing: 0.1em; color: var(--accent); }
+
+#pauseBtn {
+  position: absolute;
+  top: 0.9em; right: 1em;
+  pointer-events: auto;
+  background: rgba(10,3,24,0.82);
+  border: 2px solid var(--border);
+  color: var(--text);
+  padding: 0.45em 0.7em;
+  cursor: pointer;
+  font-size: 0.85em;
+}
+#pauseBtn:hover { border-color: var(--accent); color: var(--accent); }
+
+#backBtn {
+  position: absolute;
+  top: 0.9em; left: 1em;
+  z-index: 60;
+  background: rgba(10,3,24,0.82);
+  border: 2px solid var(--border);
+  color: var(--text-dim);
+  padding: 0.5em 0.9em;
+  cursor: pointer;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55em;
+  letter-spacing: 0.08em;
+}
+#backBtn:hover { color: var(--accent2); border-color: var(--accent2); }
+
+/* ── Panels (pause / gameover / howto / settings) ───── */
+.panel {
+  position: absolute;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(4,1,10,0.74);
+  backdrop-filter: blur(3px);
+}
+.panel-box {
+  background: linear-gradient(180deg, var(--bg-panel), var(--bg-panel2));
+  border: 2px solid var(--border);
+  border-top: 4px solid var(--accent);
+  padding: 1.8em 2.2em;
+  min-width: 320px;
+  max-width: 90vw;
+  text-align: center;
+  box-shadow: 0 0 34px rgba(255,32,121,0.16), 0 10px 40px rgba(0,0,0,0.6);
+}
+.panel-box.wide { min-width: 400px; max-width: 480px; }
+.panel-box h2 {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 1em;
+  letter-spacing: 0.14em;
+  color: var(--text);
+  text-shadow: 0 0 10px rgba(0,240,255,0.5);
+  margin-bottom: 1.1em;
+}
+
+.solid-btn, .ghost-btn {
+  display: block;
+  width: 100%;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.62em;
+  letter-spacing: 0.1em;
+  padding: 1em 1em;
+  margin-top: 0.85em;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.solid-btn {
+  background: var(--accent);
+  border: 2px solid var(--accent);
+  color: #14020a;
+}
+.solid-btn:hover { background: #ff4d95; box-shadow: 0 0 18px rgba(255,32,121,0.6); }
+.ghost-btn {
+  background: transparent;
+  border: 2px solid var(--border);
+  color: var(--text-dim);
+}
+.ghost-btn:hover { border-color: var(--accent2); color: var(--accent2); box-shadow: 0 0 12px rgba(0,240,255,0.3); }
+
+.sound-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5em;
+  margin-top: 1em;
+  font-size: 1.05em;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 2em;
+  padding: 0.55em 0;
+  font-size: 1.1em;
+  border-bottom: 1px dashed var(--border);
+}
+.stat-row span:first-child { color: var(--text-dim); letter-spacing: 0.06em; }
+.stat-row span:last-child {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.72em;
+  color: var(--neon-yellow);
+}
+.stat-row.record-row { border-bottom: none; margin-top: 0.5em; }
+.stat-row.record-row span:first-child,
+.stat-row.record-row span:last-child {
+  color: var(--neon-green);
+  text-shadow: 0 0 10px rgba(57,255,20,0.6);
+}
+
+.panel-actions { margin-top: 1em; }
+
+.howto-list {
+  text-align: left;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6em;
+  font-size: 1.15em;
+  line-height: 1.35;
+  color: var(--text-dim);
+  margin-bottom: 1em;
+}
+.howto-list li::before { content: '> '; color: var(--accent2); }
+.howto-list b { color: var(--text); }
+.howto-list kbd {
+  background: var(--bg-panel2);
+  border: 1px solid var(--border);
+  padding: 0.02em 0.4em;
+  color: var(--neon-yellow);
+}
+
+/* ── Settings panel ─────────────────────────────────── */
+.setting-group {
+  text-align: left;
+  margin-bottom: 1.2em;
+  padding-bottom: 1em;
+  border-bottom: 1px dashed var(--border);
+}
+.setting-label-row {
+  display: flex;
+  align-items: center;
+  gap: 0.7em;
+  margin-bottom: 0.4em;
+}
+.setting-label-row label {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.55em;
+  letter-spacing: 0.08em;
+  color: var(--text-dim);
+  min-width: 6.5em;
+}
+.setting-value {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.62em;
+  color: var(--accent2);
+  min-width: 2.6em;
+  text-align: right;
+}
+.setting-group input[type="range"] {
+  width: 100%;
+  accent-color: var(--accent);
+  cursor: pointer;
+}
+.setting-note {
+  margin-top: 0.5em;
+  font-size: 1em;
+  line-height: 1.35;
+  color: var(--text-dim);
+}
+.crosshair-editor {
+  display: flex;
+  gap: 1.1em;
+  align-items: center;
+}
+#crosshairPreview {
+  flex-shrink: 0;
+  border: 2px solid var(--border);
+}
+.crosshair-controls {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4em;
+}
+.crosshair-controls .setting-label-row { margin-bottom: 0; }
+.crosshair-controls input[type="range"] { flex: 1; width: auto; }
+.crosshair-controls input[type="color"] {
+  width: 3.2em;
+  height: 2em;
+  padding: 0;
+  border: 2px solid var(--border);
+  background: transparent;
+  cursor: pointer;
+}
+.dot-toggle { justify-content: flex-start; margin-top: 0.4em; }
+
+/* ── Menu screen ─────────────────────────────────────── */
+#menuScreen {
+  position: absolute;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  background: rgba(6,1,14,0.5);
+  backdrop-filter: blur(9px);
+  -webkit-backdrop-filter: blur(9px);
+}
+.bg-grid {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(255,32,121,0.09) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,240,255,0.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+  mask-image: radial-gradient(ellipse at center, black 40%, transparent 80%);
+}
+.menu-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4em;
+  padding: 1em;
+  width: 100%;
+}
+.game-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(1.6em, 4.5vw, 3em);
+  color: var(--text);
+  text-shadow: 0 0 18px rgba(0,240,255,0.55), 3px 3px 0 #2a0b3d;
+  animation: title-flicker 4s infinite;
+}
+.game-title span {
+  color: var(--accent);
+  text-shadow: 0 0 22px rgba(255,32,121,0.9), 3px 3px 0 #2a0b3d;
+}
+@keyframes title-flicker {
+  0%, 100% { opacity: 1; }
+  91% { opacity: 1; }
+  92% { opacity: 0.55; }
+  93% { opacity: 1; }
+  96% { opacity: 0.8; }
+  97% { opacity: 1; }
+}
+.game-subtitle {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.42em, 1vw, 0.62em);
+  letter-spacing: 0.35em;
+  color: var(--accent2);
+  text-shadow: 0 0 10px rgba(0,240,255,0.5);
+  margin-top: 0.9em;
+}
+.insert-coin {
+  font-family: 'Press Start 2P', monospace;
+  font-size: clamp(0.4em, 0.85vw, 0.55em);
+  color: var(--neon-yellow);
+  letter-spacing: 0.25em;
+  margin-bottom: 1.7em;
+  animation: coin-blink 1.2s steps(1) infinite;
+}
+@keyframes coin-blink {
+  0%, 60% { opacity: 1; }
+  61%, 100% { opacity: 0.15; }
+}
+
+.mode-grid {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 0.85em;
+  width: min(1060px, 94vw);
+}
+@media (max-width: 860px) {
+  .mode-grid { grid-template-columns: repeat(2, 1fr); width: min(520px, 94vw); }
+}
+.mode-card {
+  background: rgba(20,11,43,0.85);
+  border: 2px solid var(--border);
+  padding: 0.95em 0.85em;
+  cursor: pointer;
+  text-align: left;
+  transition: all 0.15s;
+}
+.mode-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 0 18px var(--accent-dim), 0 8px 18px rgba(0,0,0,0.5);
+  border-color: var(--accent);
+}
+.mode-card .mode-name {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.6em;
+  line-height: 1.4;
+}
+.mode-card .mode-desc {
+  font-size: 1.02em;
+  color: var(--text-dim);
+  margin-top: 0.45em;
+  line-height: 1.2;
+  min-height: 2.4em;
+}
+.mode-card .mode-best {
+  margin-top: 0.5em;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.48em;
+  color: var(--neon-yellow);
+  letter-spacing: 0.05em;
+}
+.mode-card[data-diff="1"] .mode-name { color: var(--accent2); text-shadow: 0 0 8px rgba(0,240,255,0.6); }
+.mode-card[data-diff="2"] .mode-name { color: var(--neon-green); text-shadow: 0 0 8px rgba(57,255,20,0.6); }
+.mode-card[data-diff="3"] .mode-name { color: var(--neon-yellow); text-shadow: 0 0 8px rgba(255,230,0,0.6); }
+.mode-card[data-diff="4"] .mode-name { color: var(--accent); text-shadow: 0 0 8px rgba(255,32,121,0.7); }
+
+.menu-footer {
+  display: flex;
+  align-items: center;
+  gap: 1.2em;
+  margin-top: 1.6em;
+}
+.menu-footer .ghost-btn { width: auto; margin-top: 0; padding: 0.85em 1.4em; }
+.menu-footer .sound-toggle { margin-top: 0; }
+
+.credit {
+  position: absolute;
+  bottom: 1.1em;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 3;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.5em;
+  letter-spacing: 0.25em;
+  color: var(--text-dim);
+  text-transform: uppercase;
+}
+.credit span {
+  color: var(--accent);
+  text-shadow: 0 0 12px rgba(255,32,121,0.7);
+}
+
+@media (max-width: 720px) {
+  .hud-bar { gap: 0.8em; padding: 0.4em 0.8em; }
+  .hud-label { font-size: 0.38em; }
+  .hud-item span:last-child { font-size: 0.62em; }
+  .hud-item { min-width: 2.8em; }
+  .game-subtitle { letter-spacing: 0.2em; }
+}

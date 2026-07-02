@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>VALOSIM — Peek Aim Trainer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<div id="wrapper">
+  <canvas id="gameCanvas"></canvas>
+
+  <!-- In-game HUD -->
+  <div id="hud" class="hidden">
+    <div class="hud-bar">
+      <div class="hud-item hud-mode"><span class="hud-label">MOD</span><span id="hudMode">-</span></div>
+      <div class="hud-item hud-score"><span class="hud-label">SKOR</span><span id="hudScore">0</span></div>
+      <div class="hud-item hud-combo"><span class="hud-label">COMBO</span><span id="hudCombo">0</span></div>
+      <div class="hud-item hud-time"><span class="hud-label">SÜRE</span><span id="hudTime">00:00</span></div>
+      <div class="hud-item hud-lives"><span class="hud-label">CAN</span><span id="hudLives"></span></div>
+    </div>
+    <button id="pauseBtn" aria-label="Duraklat">❚❚</button>
+  </div>
+
+  <!-- Pause overlay -->
+  <div id="pausePanel" class="panel hidden">
+    <div class="panel-box">
+      <h2>DURAKLATILDI</h2>
+      <button class="solid-btn" id="resumeBtn">DEVAM ET</button>
+      <button class="ghost-btn" id="restartFromPauseBtn">YENİDEN BAŞLAT</button>
+      <button class="ghost-btn" id="settingsFromPauseBtn">AYARLAR</button>
+      <button class="ghost-btn" id="menuFromPauseBtn">ANA MENÜ</button>
+      <label class="sound-toggle"><input type="checkbox" id="soundTogglePause" checked> Ses Efektleri</label>
+    </div>
+  </div>
+
+  <!-- Game over overlay -->
+  <div id="gameOverPanel" class="panel hidden">
+    <div class="panel-box">
+      <h2 id="gameOverTitle">OYUN BİTTİ</h2>
+      <div class="stat-row"><span>Skor</span><span id="finalScore">0</span></div>
+      <div class="stat-row"><span>En Yüksek Combo</span><span id="finalCombo">0</span></div>
+      <div class="stat-row"><span>İsabet Oranı</span><span id="finalAccuracy">0%</span></div>
+      <div class="stat-row"><span>Süre</span><span id="finalTime">00:00</span></div>
+      <div class="stat-row record-row hidden" id="newRecordRow"><span>🏆 YENİ REKOR</span><span id="finalHighScore">0</span></div>
+      <div class="panel-actions">
+        <button class="solid-btn" id="retryBtn">TEKRAR OYNA</button>
+        <button class="ghost-btn" id="backToMenuBtn">ANA MENÜ</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- How to play modal -->
+  <div id="howToPlayPanel" class="panel hidden">
+    <div class="panel-box wide">
+      <h2>NASIL OYNANIR</h2>
+      <ul class="howto-list">
+        <li>Duvar aralığından (peek gap) anlık geçen hedefi <b>tıkla / dokun</b>.</li>
+        <li>Hedefi kaçırırsan bir <b>can</b> kaybedersin — canlar biterse oyun biter.</li>
+        <li>Ardışık isabetler <b>combo</b> çarpanını artırır, skorun katlanarak büyür.</li>
+        <li>Hedefin merkezine yakın vurursan <b>PERFECT</b> bonusu kazanırsın.</li>
+        <li>Hedef yokken tıklarsan combo bozulur — rastgele ateş etme!</li>
+        <li>Oyundaki <b>ilk tıklama</b> fareyi kilitler (nişan modu) — sens ayarı burada devreye girer.</li>
+        <li><kbd>ESC</kbd> kilidi açar ve oyunu duraklatır.</li>
+      </ul>
+      <button class="solid-btn" id="closeHowToBtn">ANLADIM</button>
+    </div>
+  </div>
+
+  <!-- Settings modal -->
+  <div id="settingsPanel" class="panel hidden">
+    <div class="panel-box wide">
+      <h2>AYARLAR</h2>
+      <div class="setting-group">
+        <div class="setting-label-row"><label for="sensSlider">HASSASİYET (SENS)</label><span id="sensValue" class="setting-value">1.00</span></div>
+        <input type="range" id="sensSlider" min="0.10" max="3.00" step="0.05">
+        <p class="setting-note">Oyunda ekrana ilk tıklayışın fareyi kilitler; sens bu nişan hızını belirler. ESC kilidi açar ve oyunu duraklatır.</p>
+      </div>
+      <div class="setting-group">
+        <div class="setting-label-row"><label>CROSSHAIR</label></div>
+        <div class="crosshair-editor">
+          <canvas id="crosshairPreview" width="130" height="130"></canvas>
+          <div class="crosshair-controls">
+            <div class="setting-label-row"><label for="chColor">Renk</label><input type="color" id="chColor"></div>
+            <div class="setting-label-row"><label for="chSize">Boyut</label><input type="range" id="chSize" min="4" max="24" step="1"><span id="chSizeValue" class="setting-value"></span></div>
+            <div class="setting-label-row"><label for="chGap">Boşluk</label><input type="range" id="chGap" min="0" max="14" step="1"><span id="chGapValue" class="setting-value"></span></div>
+            <div class="setting-label-row"><label for="chThick">Kalınlık</label><input type="range" id="chThick" min="1" max="6" step="1"><span id="chThickValue" class="setting-value"></span></div>
+            <label class="sound-toggle dot-toggle"><input type="checkbox" id="chDot"> Orta nokta</label>
+          </div>
+        </div>
+      </div>
+      <button class="solid-btn" id="closeSettingsBtn">KAPAT</button>
+    </div>
+  </div>
+
+  <!-- Main menu -->
+  <div id="menuScreen">
+    <div class="bg-grid"></div>
+    <div class="menu-content">
+      <h1 class="game-title">VALO<span>SIM</span></h1>
+      <p class="game-subtitle">ARCADE AIM TRAINER</p>
+      <p class="insert-coin">— INSERT COIN —</p>
+
+      <div class="mode-grid" id="modeGrid"></div>
+
+      <div class="menu-footer">
+        <button class="ghost-btn" id="howToPlayBtn">NASIL OYNANIR</button>
+        <button class="ghost-btn" id="settingsBtn">AYARLAR</button>
+        <label class="sound-toggle"><input type="checkbox" id="soundToggleMenu" checked> Ses Efektleri</label>
+      </div>
+    </div>
+    <div class="credit">made by <span>talsa</span></div>
+  </div>
+
+  <button id="backBtn" class="hidden" aria-label="Ana Menü">← MENÜ</button>
+</div>
+<script src="script.js"></script>
+</body>
+</html>
