@@ -32,6 +32,7 @@
       <button class="solid-btn" id="resumeBtn">DEVAM ET</button>
       <button class="ghost-btn" id="restartFromPauseBtn">YENİDEN BAŞLAT</button>
       <button class="ghost-btn" id="settingsFromPauseBtn">AYARLAR</button>
+      <button class="ghost-btn" id="musicFromPauseBtn">MÜZİK</button>
       <button class="ghost-btn" id="menuFromPauseBtn">ANA MENÜ</button>
       <label class="sound-toggle"><input type="checkbox" id="soundTogglePause" checked> Ses Efektleri</label>
     </div>
@@ -96,6 +97,56 @@
     </div>
   </div>
 
+  <!-- Music modal -->
+  <div id="musicPanel" class="panel hidden">
+    <div class="panel-box wide">
+      <h2>MÜZİK</h2>
+      <div class="setting-group">
+        <div class="setting-label-row"><label>YOUTUBE / YT MUSIC</label></div>
+        <div class="music-input-row">
+          <input type="text" id="ytUrlInput" placeholder="Şarkı veya playlist linki yapıştır...">
+          <button class="solid-btn" id="ytLoadBtn">YÜKLE</button>
+        </div>
+        <p class="setting-note" id="ytMsg">youtube.com, youtu.be ve music.youtube.com linkleri çalışır. Müzik sağ alttaki mini oynatıcıda çalar.</p>
+      </div>
+      <div class="setting-group">
+        <div class="setting-label-row"><label>SPOTIFY</label><span id="spotifyStatus" class="setting-value"></span></div>
+        <button class="ghost-btn spotify-btn" id="spotifyConnectBtn">SPOTIFY İLE BAĞLAN</button>
+        <p class="setting-note hidden" id="spotifySetupNote">Spotify bağlantısı şu an kurulum aşamasında — çok yakında aktif olacak. Şimdilik YouTube bölümünü kullanabilirsin.</p>
+        <div id="spotifyControls" class="hidden">
+          <div class="music-track" id="spTrack">—</div>
+          <div class="music-btn-row">
+            <button class="ghost-btn" id="spPrev">⏮</button>
+            <button class="ghost-btn" id="spPlay">⏯</button>
+            <button class="ghost-btn" id="spNext">⏭</button>
+            <button class="ghost-btn" id="spTransfer">BU CİHAZDA ÇAL</button>
+          </div>
+          <p class="setting-note">Spotify Premium gerekir. "Bu cihazda çal" çalan müziği oyuna aktarır; istersen Spotify uygulamasından cihaz olarak <b>VALOSIM</b>'i de seçebilirsin.</p>
+        </div>
+        <button class="ghost-btn hidden" id="spotifyLogoutBtn">BAĞLANTIYI KES</button>
+      </div>
+      <button class="solid-btn" id="closeMusicBtn">KAPAT</button>
+    </div>
+  </div>
+
+  <!-- Mini music dock -->
+  <div id="musicDock" class="hidden">
+    <div class="dock-header">
+      <span id="dockTitle">MÜZİK</span>
+      <div class="dock-buttons">
+        <button id="dockPrev" title="Önceki">⏮</button>
+        <button id="dockPlay" title="Oynat / Duraklat">⏯</button>
+        <button id="dockNext" title="Sonraki">⏭</button>
+        <button id="dockMin" title="Küçült / Büyüt">▬</button>
+        <button id="dockClose" title="Kapat">✕</button>
+      </div>
+    </div>
+    <div class="dock-body" id="dockBody">
+      <div id="ytPlayerBox"></div>
+    </div>
+    <input type="range" id="dockVolume" min="0" max="100" value="70" title="Ses seviyesi">
+  </div>
+
   <!-- Main menu -->
   <div id="menuScreen">
     <div class="bg-grid"></div>
@@ -109,6 +160,7 @@
       <div class="menu-footer">
         <button class="ghost-btn" id="howToPlayBtn">NASIL OYNANIR</button>
         <button class="ghost-btn" id="settingsBtn">AYARLAR</button>
+        <button class="ghost-btn" id="musicBtn">MÜZİK</button>
         <label class="sound-toggle"><input type="checkbox" id="soundToggleMenu" checked> Ses Efektleri</label>
       </div>
     </div>
@@ -118,5 +170,6 @@
   <button id="backBtn" class="hidden" aria-label="Ana Menü">← MENÜ</button>
 </div>
 <script src="script.js"></script>
+<script src="music.js"></script>
 </body>
 </html>

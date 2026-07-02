@@ -301,6 +301,95 @@ body {
 }
 .dot-toggle { justify-content: flex-start; margin-top: 0.4em; }
 
+/* ── Music panel + dock ─────────────────────────────── */
+.music-input-row {
+  display: flex;
+  gap: 0.5em;
+}
+.music-input-row input[type="text"] {
+  flex: 1;
+  min-width: 0;
+  background: var(--bg);
+  border: 2px solid var(--border);
+  color: var(--text);
+  font-family: 'VT323', monospace;
+  font-size: 1.1em;
+  padding: 0.35em 0.6em;
+  outline: none;
+}
+.music-input-row input[type="text"]:focus { border-color: var(--accent2); }
+.music-input-row .solid-btn { width: auto; margin-top: 0; padding: 0.7em 1em; }
+
+.spotify-btn { border-color: #1DB954; color: #1DB954; }
+.spotify-btn:hover {
+  border-color: #1ed760; color: #1ed760;
+  box-shadow: 0 0 12px rgba(29,185,84,0.4);
+}
+
+.music-track {
+  font-size: 1.15em;
+  color: var(--neon-yellow);
+  margin-top: 0.6em;
+  min-height: 1.2em;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.music-btn-row {
+  display: flex;
+  gap: 0.5em;
+  margin-top: 0.5em;
+}
+.music-btn-row .ghost-btn { width: auto; margin-top: 0; padding: 0.6em 0.8em; font-size: 0.7em; }
+
+#musicDock {
+  position: absolute;
+  right: 1em;
+  bottom: 1em;
+  z-index: 150;
+  width: 300px;
+  background: rgba(10,3,24,0.94);
+  border: 2px solid var(--border);
+  box-shadow: 0 0 18px rgba(0,240,255,0.15);
+}
+.dock-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5em;
+  padding: 0.45em 0.6em;
+  border-bottom: 1px dashed var(--border);
+}
+#dockTitle {
+  flex: 1;
+  font-family: 'Press Start 2P', monospace;
+  font-size: 0.48em;
+  color: var(--accent2);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.dock-buttons { display: flex; gap: 0.3em; }
+.dock-buttons button {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-dim);
+  cursor: pointer;
+  font-size: 0.72em;
+  padding: 0.12em 0.4em;
+  line-height: 1.3;
+}
+.dock-buttons button:hover { border-color: var(--accent); color: var(--accent); }
+.dock-body { line-height: 0; }
+#ytPlayerBox iframe { width: 100%; height: 168px; display: block; }
+#musicDock.collapsed .dock-body { height: 0; overflow: hidden; }
+#dockVolume {
+  width: 100%;
+  display: block;
+  accent-color: var(--accent);
+  cursor: pointer;
+  margin: 0;
+}
+
 /* ── Menu screen ─────────────────────────────────────── */
 #menuScreen {
   position: absolute;
