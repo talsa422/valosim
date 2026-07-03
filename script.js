@@ -33,21 +33,30 @@ const MODES = {
   },
   expert: {
     id: 'expert', name: 'IMMORTAL', diff: 3,
-    desc: 'İki açıdan hızlı hedefler.',
-    windows: [{ x0: 0.17, x1: 0.41 }, { x0: 0.59, x1: 0.83 }],
+    desc: 'Geniş iki açıdan gidip gelen hedefler.',
+    windows: [{ x0: 0.13, x1: 0.45 }, { x0: 0.55, x1: 0.87 }],
     crossMs: [520, 650], spawnGapMs: [420, 720],
     staggerMs: 500,
+    roundTrip: true, // hedef karşıya gider ve geri döner
     radius: 24, lives: 3
   },
   hell: {
     id: 'hell', name: 'RADIANT', diff: 4,
-    desc: 'Üç açı, kısa tepki süresi. Gerçek son seviye.',
+    desc: 'Duvarlar canlı: kayar, açılır, kapanır!',
     windows: [{ x0: 0.05, x1: 0.27 }, { x0: 0.385, x1: 0.615 }, { x0: 0.73, x1: 0.95 }],
     crossMs: [400, 500], spawnGapMs: [350, 650],
+    dynamicWalls: true, // aralıklar salınır ve nefes alır
     radius: 20, lives: 3
+  },
+  maze: {
+    id: 'maze', name: 'LABİRENT', diff: 5,
+    desc: 'Fareyle koridoru izle — duvara değersen yanarsın!',
+    maze: true,
+    windows: [], crossMs: [0, 0], spawnGapMs: [0, 0],
+    radius: 0, lives: 3
   }
 };
-const MODE_ORDER = ['left', 'right', 'oni', 'expert', 'hell'];
+const MODE_ORDER = ['left', 'right', 'oni', 'expert', 'hell', 'maze'];
 
 // ── DOM refs ──────────────────────────────────────────────────────
 const canvas = document.getElementById('gameCanvas');
@@ -204,6 +213,7 @@ function startGame(modeId) {
   nextSpawnAt = currentMode.windows.map((_, i) => now + 300 + i * (currentMode.staggerMs || 150));
   runStartTime = now; elapsedMs = 0;
   floaters = [];
+  if (currentMode.maze) generateMaze(1); else maze = null;
 
   screenState = 'game';
   menuScreen.classList.add('hidden');
@@ -313,6 +323,7 @@ window.addEventListener('keydown', e => {
 });
 
 function handleClick(x, y) {
+  if (currentMode && currentMode.maze) return; // labirentte tıklama yok, sadece hareket
   let bestTarget = null, bestDist = Infinity;
   for (const t of targets) {
     const d = Math.hypot(x - t.cx, y - t.cy);
@@ -390,20 +401,32 @@ function rand(a, b) { return a + Math.random() * (b - a); }
 
 const TARGET_COLORS = ['#ff2079', '#00f0ff', '#39ff14', '#ffe600'];
 
+// Anlık pencere konumları: dinamik duvarlı modlarda aralıklar
+// salınarak yer değiştirir ve nefes alır (açılır/kapanır)
+function activeWindows(now) {
+  if (!currentMode) return [];
+  if (!currentMode.dynamicWalls || screenState === 'menu') return currentMode.windows;
+  const t = now / 1000;
+  return currentMode.windows.map((w, i) => {
+    const c0 = (w.x0 + w.x1) / 2, hw0 = (w.x1 - w.x0) / 2;
+    const c = c0 + Math.sin(t * 0.8 + i * 2.1) * 0.035;   // pencere gezinir
+    const hw = hw0 * (0.7 + 0.3 * Math.sin(t * 1.5 + i * 1.7)); // %40-%100 arası nefes
+    return { x0: c - hw, x1: c + hw };
+  });
+}
+
 function spawnTarget(windowIndex) {
-  const win = currentMode.windows[windowIndex];
   const ltr = currentMode.direction === 'ltr' ? true
             : currentMode.direction === 'rtl' ? false
             : Math.random() < 0.5;
-  const x0 = ltr ? win.x0 : win.x1;
-  const x1 = ltr ? win.x1 : win.x0;
-  const yBand = { y0: 0.42, y1: 0.70 };
+  const roundTrip = !!currentMode.roundTrip;
   targets.push({
     windowIndex,
-    startXFrac: x0, endXFrac: x1,
-    yFrac: rand(yBand.y0, yBand.y1),
+    ltr,
+    roundTrip,
+    yFrac: rand(0.42, 0.70),
     spawnTs: performance.now(),
-    duration: rand(currentMode.crossMs[0], currentMode.crossMs[1]),
+    duration: rand(currentMode.crossMs[0], currentMode.crossMs[1]) * (roundTrip ? 2 : 1),
     radius: currentMode.radius,
     color: TARGET_COLORS[Math.floor(Math.random() * TARGET_COLORS.length)],
     cx: 0, cy: 0
@@ -412,9 +435,28 @@ function spawnTarget(windowIndex) {
 
 function easeInOutQuad(t) { return t < 0.5 ? 2 * t * t : 1 - Math.pow(-2 * t + 2, 2) / 2; }
 
+// Hedef konumu pencereye bağıl hesaplanır; duvar hareket ederse hedef de onunla kayar
+function positionTarget(t, now, wins) {
+  const win = wins[t.windowIndex] || wins[0];
+  if (!win) return;
+  const p = (now - t.spawnTs) / t.duration;
+  let f;
+  if (t.roundTrip) {
+    const leg = p < 0.5 ? p * 2 : (1 - p) * 2; // 0→1→0 (git ve dön)
+    f = easeInOutQuad(leg);
+  } else {
+    f = easeInOutQuad(p);
+  }
+  const frac = t.ltr ? f : 1 - f;
+  t.cx = (win.x0 + (win.x1 - win.x0) * frac) * W;
+  t.cy = t.yFrac * H;
+}
+
 function updateGame(now) {
   elapsedMs = now - runStartTime;
   hudTimeEl.textContent = fmtTime(elapsedMs);
+
+  if (currentMode.maze) { updateMaze(now); return; }
 
   currentMode.windows.forEach((win, i) => {
     const hasActive = targets.some(t => t.windowIndex === i);
@@ -429,6 +471,7 @@ function updateGame(now) {
     }
   });
 
+  const wins = activeWindows(now);
   for (let i = targets.length - 1; i >= 0; i--) {
     const t = targets[i];
     const progress = (now - t.spawnTs) / t.duration;
@@ -436,10 +479,7 @@ function updateGame(now) {
       registerMissTransit(t);
       continue;
     }
-    const e = easeInOutQuad(progress);
-    const xFrac = t.startXFrac + (t.endXFrac - t.startXFrac) * e;
-    t.cx = xFrac * W;
-    t.cy = t.yFrac * H;
+    positionTarget(t, now, wins);
     t.progress = progress;
   }
 
@@ -452,6 +492,7 @@ function updateMenuDemo(now) {
     const hasActive = targets.some(t => t.windowIndex === i);
     if (!hasActive && now >= nextSpawnAt[i]) spawnTarget(i);
   });
+  const wins = activeWindows(now);
   for (let i = targets.length - 1; i >= 0; i--) {
     const t = targets[i];
     const progress = (now - t.spawnTs) / t.duration;
@@ -460,10 +501,164 @@ function updateMenuDemo(now) {
       nextSpawnAt[t.windowIndex] = now + rand(600, 1200);
       continue;
     }
-    const e = easeInOutQuad(progress);
-    t.cx = (t.startXFrac + (t.endXFrac - t.startXFrac) * e) * W;
-    t.cy = t.yFrac * H;
+    positionTarget(t, now, wins);
   }
+}
+
+// ── Maze mode (LABİRENT) ─────────────────────────────────────────
+let maze = null;
+
+function generateMaze(level) {
+  const margin = 0.08;
+  const n = 26;
+  const pts = [];
+  const a1 = rand(0, Math.PI * 2), a2 = rand(0, Math.PI * 2);
+  const f1 = 1.2 + level * 0.25 + Math.random() * 0.4;
+  const f2 = 2.3 + level * 0.35 + Math.random() * 0.6;
+  const amp = H * Math.min(0.13 + level * 0.02, 0.24);
+  for (let i = 0; i < n; i++) {
+    const u = i / (n - 1);
+    const x = (margin + (1 - 2 * margin) * u) * W;
+    let y = H * 0.52 + Math.sin(u * Math.PI * f1 + a1) * amp
+                     + Math.sin(u * Math.PI * f2 + a2) * amp * 0.45;
+    y = Math.max(H * 0.16, Math.min(H * 0.86, y));
+    pts.push({ x, y });
+  }
+  const halfW = Math.max(H * 0.030, H * (0.085 - (level - 1) * 0.008));
+  maze = { pts, halfW, level, armed: false, burnFx: [] };
+}
+
+// Fare ile koridor orta çizgisi arasındaki en kısa mesafe
+function distToMaze(x, y) {
+  let best = Infinity;
+  const pts = maze.pts;
+  for (let i = 0; i < pts.length - 1; i++) {
+    const ax = pts[i].x, ay = pts[i].y;
+    const dx = pts[i + 1].x - ax, dy = pts[i + 1].y - ay;
+    const tt = Math.max(0, Math.min(1, ((x - ax) * dx + (y - ay) * dy) / (dx * dx + dy * dy)));
+    best = Math.min(best, Math.hypot(x - (ax + dx * tt), y - (ay + dy * tt)));
+  }
+  return best;
+}
+
+function updateMaze(now) {
+  const start = maze.pts[0], end = maze.pts[maze.pts.length - 1];
+  if (!maze.armed) {
+    if (Math.hypot(mouseX - start.x, mouseY - start.y) < maze.halfW * 0.9) {
+      maze.armed = true;
+      SFX.hit();
+      addFloater(start.x, start.y - 24, 'BAŞLA!', '#39ff14');
+    }
+  } else if (distToMaze(mouseX, mouseY) > maze.halfW) {
+    burnMaze(now);
+  } else if (Math.hypot(mouseX - end.x, mouseY - end.y) < maze.halfW * 0.9) {
+    const gained = 100 * maze.level;
+    score += gained;
+    hits++;
+    bestCombo = Math.max(bestCombo, maze.level);
+    addFloater(end.x, end.y - 24, 'LEVEL ' + maze.level + ' +' + gained, '#ffe600');
+    SFX.perfect();
+    generateMaze(maze.level + 1);
+  }
+  combo = maze.level; // HUD'daki COMBO alanı seviyeyi gösterir
+  updateHudScoreCombo();
+  floaters = floaters.filter(f => now - f.born < 650);
+  maze.burnFx = maze.burnFx.filter(p => now - p.born < 600);
+  for (const p of maze.burnFx) { p.x += p.vx; p.y += p.vy; p.vy += 0.15; }
+}
+
+function burnMaze(now) {
+  misses++;
+  lives--;
+  SFX.miss();
+  triggerShake(8, 260);
+  addFloater(mouseX, mouseY - 24, 'YANDIN!', '#ff2079');
+  for (let i = 0; i < 26; i++) {
+    maze.burnFx.push({
+      x: mouseX, y: mouseY,
+      vx: rand(-3, 3), vy: rand(-4, 1),
+      born: now,
+      c: Math.random() < 0.5 ? '#ff2079' : '#ffe600'
+    });
+  }
+  maze.armed = false; // tekrar START'a dönmesi gerekir
+  updateHudLives();
+  if (lives <= 0) endGame();
+}
+
+function strokeMazePath(pts) {
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for (let i = 1; i < pts.length; i++) ctx.lineTo(pts[i].x, pts[i].y);
+  ctx.stroke();
+}
+
+function drawMazeZone(p, color, label) {
+  ctx.beginPath();
+  ctx.arc(p.x, p.y, maze.halfW * 0.9, 0, Math.PI * 2);
+  ctx.fillStyle = color + '26';
+  ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.font = "10px 'Press Start 2P', monospace";
+  ctx.textAlign = 'center';
+  ctx.fillText(label, p.x, p.y - maze.halfW * 0.9 - 10);
+}
+
+function drawMaze(now) {
+  const pts = maze.pts;
+  ctx.save();
+  ctx.lineJoin = 'round';
+  ctx.lineCap = 'round';
+
+  // Dış neon kenar (koridordan biraz geniş) → duvar hissi
+  ctx.shadowColor = '#ff2079';
+  ctx.shadowBlur = 14;
+  ctx.strokeStyle = 'rgba(255,32,121,0.55)';
+  ctx.lineWidth = maze.halfW * 2 + 6;
+  strokeMazePath(pts);
+  ctx.shadowBlur = 0;
+
+  // Koridor zemini
+  ctx.strokeStyle = '#181035';
+  ctx.lineWidth = maze.halfW * 2;
+  strokeMazePath(pts);
+
+  // Orta kılavuz çizgisi
+  ctx.setLineDash([6, 10]);
+  ctx.strokeStyle = 'rgba(0,240,255,0.35)';
+  ctx.lineWidth = 2;
+  strokeMazePath(pts);
+  ctx.setLineDash([]);
+
+  drawMazeZone(pts[0], '#39ff14', 'START');
+  drawMazeZone(pts[pts.length - 1], '#ffe600', 'BİTİŞ');
+
+  // Seviye ve durum yazıları
+  ctx.textAlign = 'center';
+  ctx.fillStyle = 'rgba(0,240,255,0.8)';
+  ctx.font = "12px 'Press Start 2P', monospace";
+  ctx.fillText('LEVEL ' + maze.level, W / 2, H * 0.14);
+  if (!maze.armed) {
+    const blink = Math.floor(now / 500) % 2 === 0;
+    if (blink) {
+      ctx.fillStyle = '#39ff14';
+      ctx.font = "11px 'Press Start 2P', monospace";
+      ctx.fillText('YEŞİL HALKADAN BAŞLA', W / 2, H * 0.94);
+    }
+  }
+
+  // Yanma parçacıkları
+  for (const p of maze.burnFx) {
+    const age = (now - p.born) / 600;
+    ctx.globalAlpha = Math.max(1 - age, 0);
+    ctx.fillStyle = p.c;
+    ctx.fillRect(p.x - 3, p.y - 3, 6, 6);
+  }
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 // ── Drawing ──────────────────────────────────────────────────────
@@ -504,41 +699,46 @@ function drawScene(now) {
     ctx.stroke();
   }
 
-  // Wall band + gaps
-  const windows = currentMode ? currentMode.windows : [];
-  const segments = [];
-  let cursor = 0;
-  const sorted = [...windows].sort((a, b) => a.x0 - b.x0);
-  sorted.forEach(w => {
-    if (w.x0 > cursor) segments.push([cursor, w.x0]);
-    cursor = w.x1;
-  });
-  if (cursor < 1) segments.push([cursor, 1]);
+  if (currentMode && currentMode.maze && screenState !== 'menu' && maze) {
+    // LABİRENT: duvar bandı yerine neon koridor
+    drawMaze(now);
+  } else {
+    // Wall band + gaps (dinamik modlarda pencereler hareket eder)
+    const windows = activeWindows(now);
+    const segments = [];
+    let cursor = 0;
+    const sorted = [...windows].sort((a, b) => a.x0 - b.x0);
+    sorted.forEach(w => {
+      if (w.x0 > cursor) segments.push([cursor, w.x0]);
+      cursor = w.x1;
+    });
+    if (cursor < 1) segments.push([cursor, 1]);
 
-  segments.forEach(([a, b]) => {
-    const x = a * W, w = (b - a) * W;
-    const wg = ctx.createLinearGradient(x, wallTop, x, wallBottom);
-    wg.addColorStop(0, '#241348');
-    wg.addColorStop(1, '#150a2e');
-    ctx.fillStyle = wg;
-    ctx.fillRect(x, wallTop, w, wallBottom - wallTop);
-    ctx.strokeStyle = 'rgba(0,240,255,0.30)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(x, wallTop, w, wallBottom - wallTop);
-  });
+    segments.forEach(([a, b]) => {
+      const x = a * W, w = (b - a) * W;
+      const wg = ctx.createLinearGradient(x, wallTop, x, wallBottom);
+      wg.addColorStop(0, '#241348');
+      wg.addColorStop(1, '#150a2e');
+      ctx.fillStyle = wg;
+      ctx.fillRect(x, wallTop, w, wallBottom - wallTop);
+      ctx.strokeStyle = 'rgba(0,240,255,0.30)';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(x, wallTop, w, wallBottom - wallTop);
+    });
 
-  // Gap edge markers
-  sorted.forEach(w => {
-    ctx.strokeStyle = 'rgba(255,32,121,0.45)';
-    ctx.setLineDash([8, 6]);
-    ctx.lineWidth = 2;
-    ctx.beginPath(); ctx.moveTo(w.x0 * W, wallTop); ctx.lineTo(w.x0 * W, wallBottom); ctx.stroke();
-    ctx.beginPath(); ctx.moveTo(w.x1 * W, wallTop); ctx.lineTo(w.x1 * W, wallBottom); ctx.stroke();
-    ctx.setLineDash([]);
-  });
+    // Gap edge markers
+    sorted.forEach(w => {
+      ctx.strokeStyle = 'rgba(255,32,121,0.45)';
+      ctx.setLineDash([8, 6]);
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.moveTo(w.x0 * W, wallTop); ctx.lineTo(w.x0 * W, wallBottom); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(w.x1 * W, wallTop); ctx.lineTo(w.x1 * W, wallBottom); ctx.stroke();
+      ctx.setLineDash([]);
+    });
 
-  // Targets
-  for (const t of targets) drawTarget(t);
+    // Targets
+    for (const t of targets) drawTarget(t);
+  }
 
   // Floaters
   const nowFl = now;

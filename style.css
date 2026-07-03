@@ -488,9 +488,9 @@ body {
 
 .mode-grid {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 0.85em;
-  width: min(1060px, 94vw);
+  grid-template-columns: repeat(6, 1fr);
+  gap: 0.8em;
+  width: min(1240px, 96vw);
 }
 @media (max-width: 860px) {
   .mode-grid { grid-template-columns: repeat(2, 1fr); width: min(520px, 94vw); }
@@ -531,6 +531,7 @@ body {
 .mode-card[data-diff="2"] .mode-name { color: var(--neon-green); text-shadow: 0 0 8px rgba(57,255,20,0.6); }
 .mode-card[data-diff="3"] .mode-name { color: var(--neon-yellow); text-shadow: 0 0 8px rgba(255,230,0,0.6); }
 .mode-card[data-diff="4"] .mode-name { color: var(--accent); text-shadow: 0 0 8px rgba(255,32,121,0.7); }
+.mode-card[data-diff="5"] .mode-name { color: #c77dff; text-shadow: 0 0 8px rgba(199,125,255,0.7); }
 
 .menu-footer {
   display: flex;
