@@ -28,14 +28,14 @@ const MODES = {
     id: 'oni', name: 'DIAMOND', diff: 2,
     desc: 'Merkezden hızlı ve dar aralıklı geçişler.',
     windows: [{ x0: 0.36, x1: 0.64 }],
-    crossMs: [500, 620], spawnGapMs: [350, 650],
+    crossMs: [820, 950], spawnGapMs: [350, 650],
     radius: 25, lives: 3
   },
   expert: {
     id: 'expert', name: 'IMMORTAL', diff: 3,
     desc: 'Geniş iki açıdan gidip gelen hedefler.',
     windows: [{ x0: 0.13, x1: 0.45 }, { x0: 0.55, x1: 0.87 }],
-    crossMs: [520, 650], spawnGapMs: [420, 720],
+    crossMs: [820, 950], spawnGapMs: [420, 720],
     staggerMs: 500,
     roundTrip: true, // hedef karşıya gider ve geri döner
     radius: 24, lives: 3
@@ -44,7 +44,7 @@ const MODES = {
     id: 'hell', name: 'RADIANT', diff: 4,
     desc: 'Duvarlar canlı: kayar, açılır, kapanır!',
     windows: [{ x0: 0.05, x1: 0.27 }, { x0: 0.385, x1: 0.615 }, { x0: 0.73, x1: 0.95 }],
-    crossMs: [400, 500], spawnGapMs: [350, 650],
+    crossMs: [820, 950], spawnGapMs: [350, 650],
     dynamicWalls: true, // aralıklar salınır ve nefes alır
     radius: 20, lives: 3
   },
