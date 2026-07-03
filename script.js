@@ -28,14 +28,14 @@ const MODES = {
     id: 'oni', name: 'DIAMOND', diff: 2,
     desc: 'Merkezden hızlı ve dar aralıklı geçişler.',
     windows: [{ x0: 0.36, x1: 0.64 }],
-    crossMs: [1050, 1250], spawnGapMs: [350, 650],
+    crossMs: [1500, 1800], spawnGapMs: [350, 650],
     radius: 25, lives: 3
   },
   expert: {
     id: 'expert', name: 'IMMORTAL', diff: 3,
     desc: 'Geniş iki açıdan gidip gelen hedefler.',
     windows: [{ x0: 0.13, x1: 0.45 }, { x0: 0.55, x1: 0.87 }],
-    crossMs: [1050, 1250], spawnGapMs: [420, 720],
+    crossMs: [1500, 1800], spawnGapMs: [420, 720],
     staggerMs: 500,
     roundTrip: true, // hedef karşıya gider ve geri döner
     radius: 24, lives: 3
@@ -44,7 +44,7 @@ const MODES = {
     id: 'hell', name: 'RADIANT', diff: 4,
     desc: 'Duvarlar canlı: kayar, açılır, kapanır!',
     windows: [{ x0: 0.05, x1: 0.27 }, { x0: 0.385, x1: 0.615 }, { x0: 0.73, x1: 0.95 }],
-    crossMs: [1050, 1250], spawnGapMs: [350, 650],
+    crossMs: [2000, 2400], spawnGapMs: [350, 650],
     dynamicWalls: true, // aralıklar salınır ve nefes alır
     radius: 20, lives: 3
   },
@@ -409,8 +409,8 @@ function activeWindows(now) {
   const t = now / 1000;
   return currentMode.windows.map((w, i) => {
     const c0 = (w.x0 + w.x1) / 2, hw0 = (w.x1 - w.x0) / 2;
-    const c = c0 + Math.sin(t * 0.8 + i * 2.1) * 0.035;   // pencere gezinir
-    const hw = hw0 * (0.7 + 0.3 * Math.sin(t * 1.5 + i * 1.7)); // %40-%100 arası nefes
+    const c = c0 + Math.sin(t * 0.4 + i * 2.1) * 0.035;   // pencere gezinir (yavaş)
+    const hw = hw0 * (0.75 + 0.25 * Math.sin(t * 0.7 + i * 1.7)); // %50-%100 arası yavaş nefes
     return { x0: c - hw, x1: c + hw };
   });
 }
